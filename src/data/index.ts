@@ -1,12 +1,12 @@
 import type { Backend } from './repo'
+import { createCookieBackend } from './cookies'
 import { createSupabaseBackend } from './supabase'
-import { createLocalBackend } from './local'
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
-const mode = import.meta.env.VITE_DATA_MODE as string | undefined
 
-export const isConfigured = Boolean(url && key) || mode === 'local'
-
-export const backend: Backend | null =
-  mode === 'local' ? createLocalBackend() : url && key ? createSupabaseBackend(url, key) : null
+/**
+ * Por defecto los datos se guardan en cookies del navegador (no requiere configurar nada).
+ * Si defines VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY se usa Supabase (cuentas + sincronización).
+ */
+export const backend: Backend = url && key ? createSupabaseBackend(url, key) : createCookieBackend()

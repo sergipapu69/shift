@@ -9,9 +9,14 @@ export function newId(): string {
   })
 }
 
-export function startTimer(habitId: string, now: number): ActiveTimer {
+/** Id corto (12 hex) para el almacenamiento en cookies, donde cada byte cuenta. */
+export function shortId(): string {
+  return newId().replace(/-/g, '').slice(0, 12)
+}
+
+export function startTimer(habitId: string, now: number, id: string = newId()): ActiveTimer {
   return {
-    id: newId(),
+    id,
     habitId,
     startedAt: new Date(now).toISOString(),
     accumulatedMs: 0,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { backend, isConfigured } from './data'
+import { backend } from './data'
 import type { AuthUser } from './data/repo'
 import { StoreProvider, useStore } from './store'
 import { Nav, type Tab } from './components/Nav'
@@ -7,7 +7,6 @@ import { Toasts } from './components/Toasts'
 import { formatClock } from './lib/dates'
 import { elapsedMs } from './lib/timer'
 import Auth from './screens/Auth'
-import Setup from './screens/Setup'
 import Home from './screens/Home'
 import HabitDetail from './screens/HabitDetail'
 import Settings from './screens/Settings'
@@ -43,7 +42,7 @@ function MiniTimer({ current }: { current: string | null }) {
 
 function Shell() {
   const hash = useHash()
-  const { loadError, reload, loading, backend: be } = useStore()
+  const { loadError, reload, loading } = useStore()
   const m = /^#\/habit\/(.+)$/.exec(hash)
   const habitId = m ? decodeURIComponent(m[1]) : null
   const tab: Tab | null = habitId ? null : hash.startsWith('#/habits') ? 'settings' : hash.startsWith('#/streaks') ? 'streaks' : hash.startsWith('#/profile') ? 'profile' : 'home'
@@ -52,7 +51,6 @@ function Shell() {
     <div className="app">
       <Nav active={tab ?? 'home'} />
       <div className="content">
-        {be.mode === 'local' && <div className="dev-banner">Modo local de desarrollo — los datos no se sincronizan</div>}
         {loadError && !loading ? (
           <div className="screen"><div className="empty"><h3>No se pudieron cargar tus datos</h3><p>{loadError}</p><button className="btn primary" onClick={() => void reload()}>Reintentar</button></div></div>
         ) : habitId ? <HabitDetail id={habitId} /> : tab === 'settings' ? <Settings /> : tab === 'streaks' ? <Stats /> : tab === 'profile' ? <Profile /> : <Home />}
@@ -68,14 +66,12 @@ export default function App() {
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    if (!backend) return
     let alive = true
     void backend.auth.getUser().then((u) => { if (alive) { setUser(u); setReady(true) } }).catch(() => alive && setReady(true))
     const off = backend.auth.onChange((u) => { setUser(u); setReady(true) })
     return () => { alive = false; off() }
   }, [])
 
-  if (!isConfigured || !backend) return <Setup />
   if (!ready) return null
   if (!user) return <Auth />
   return (

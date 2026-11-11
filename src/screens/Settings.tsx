@@ -5,9 +5,10 @@ import { useStore } from '../store'
 import { Confirm } from '../components/Modal'
 import { EditIcon, PlusIcon, TrashIcon } from '../components/Icons'
 import { HabitForm } from './HabitForm'
+import { StoragePanel } from './StoragePanel'
 
 export default function Settings() {
-  const { habits, sessions, backend, removeHabit, notify, loading } = useStore()
+  const { habits, sessions, removeHabit, notify, loading } = useStore()
   const [editing, setEditing] = useState<Habit | 'new' | null>(null)
   const [deleting, setDeleting] = useState<Habit | null>(null)
   const [busy, setBusy] = useState(false)
@@ -42,12 +43,7 @@ export default function Settings() {
         </ul>
       )}
 
-      <section className="panel">
-        <h2>Almacenamiento</h2>
-        {backend.mode === 'supabase'
-          ? <p className="muted">Tus datos se guardan en tu cuenta (Supabase) y están disponibles en cualquier dispositivo.</p>
-          : <p className="warn">Modo local de desarrollo: los datos solo viven en este navegador y no se sincronizan. No lo uses en producción.</p>}
-      </section>
+      <StoragePanel />
 
       {editing && <HabitForm habit={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)} />}
       {deleting && (

@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { getThemePref, setThemePref, type ThemePref } from '../lib/theme'
 import { formatDuration } from '../lib/dates'
 import { globalStreak, totalSeconds } from '../lib/stats'
 import { useStore } from '../store'
@@ -10,6 +11,8 @@ export default function Profile() {
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
   const g = globalStreak(sessions, today)
+  const [theme, setTheme] = useState<ThemePref>(getThemePref())
+  const pick = (t: ThemePref) => { setThemePref(t); setTheme(t) }
 
   const save = async (e: FormEvent) => {
     e.preventDefault()
@@ -27,7 +30,7 @@ export default function Profile() {
       <header className="page-head"><h1>Perfil</h1></header>
       <div className="profile-card">
         <Avatar name={profile.displayName} />
-        <div><b>{profile.displayName}</b><small>{profile.email}</small></div>
+        <div><b>{profile.displayName}</b>{profile.email && <small>{profile.email}</small>}</div>
       </div>
       <div className="kpis">
         <div className="kpi"><span>Hábitos</span><b>{habits.length}</b></div>
@@ -43,6 +46,17 @@ export default function Profile() {
         </label>
         <div className="row end"><button className="btn primary" disabled={saving}>{saving ? 'Guardando…' : 'Guardar'}</button></div>
       </form>
+      <section className="panel">
+        <h2>Apariencia</h2>
+        <div className="theme-opts" role="radiogroup" aria-label="Tema">
+          {([['dark', 'Oscuro'], ['light', 'Claro'], ['system', 'Sistema']] as [ThemePref, string][]).map(([k, label]) => (
+            <button key={k} role="radio" aria-checked={theme === k} className={'theme-opt' + (theme === k ? ' on' : '')} onClick={() => pick(k)}>
+              <i className={'theme-prev ' + k} />
+              {label}
+            </button>
+          ))}
+        </div>
+      </section>
       {backend.mode === 'supabase' && (
         <button className="btn ghost wide" onClick={() => void backend.auth.signOut()}>Cerrar sesión</button>
       )}

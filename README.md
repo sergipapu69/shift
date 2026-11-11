@@ -1,81 +1,78 @@
 # SHIFT
 
-Aplicación web de seguimiento de hábitos y registro de tiempo. Cada hábito tiene su cronómetro, su racha independiente, metas de tiempo, estadísticas e historial. Los datos viven en **Supabase** (PostgreSQL + autenticación) y cada usuario solo ve los suyos (Row Level Security).
+Aplicación web de seguimiento de hábitos y registro de tiempo. Cada hábito tiene su cronómetro, su racha independiente, metas de tiempo, estadísticas e historial. **No necesita cuentas ni configuración**: los datos se guardan en **cookies del navegador** del usuario. Incluye modo oscuro, claro y automático (sistema).
 
-**Stack:** React 19 + TypeScript + Vite · Supabase (`@supabase/supabase-js`) · CSS propio · Vitest. Sin librerías de gráficos ni de rutas (el bundle pesa ~69 kB gzip).
+**Stack:** React 19 + TypeScript + Vite · CSS propio · Vitest. Sin librerías de gráficos ni de rutas (~70 kB gzip). Supabase queda como opción (ver abajo).
 
 ## Funcionalidades
 
 - Splash «SHIFT» en CSS puro (visible ≈0,8 s, nunca bloquea la app).
-- Cuentas (correo + contraseña) y datos separados por usuario.
-- Hábitos: crear, editar, eliminar, categoría opcional, meta diaria en minutos, frecuencia por días, dificultad, color y recordatorio. Validaciones y confirmaciones.
-- Cronómetro por hábito: iniciar, pausar, reanudar, finalizar, descartar. Se calcula con **marcas de tiempo** y se guarda en la base de datos, por lo que sobrevive a recargas, cambios de sección y de dispositivo. Finalizar es idempotente: el id de la sesión es el del cronómetro (clave primaria), así que no hay duplicados ni con doble clic.
-- Rachas independientes por hábito (actual y mejor) calculadas desde las sesiones guardadas.
-- Estadísticas: tiempo total, por hábito, progreso de hoy y de 7 días frente a la meta, gráfico de 14 días.
-- Historial por día con filtro por hábito y borrado de sesiones.
-- Responsive: móvil (navegación inferior como en la referencia), tablet (3 columnas) y escritorio (navegación lateral, 4 columnas).
+- Hábitos: crear, editar, eliminar; categoría opcional, meta diaria en minutos, frecuencia por días, dificultad, color y recordatorio. Validaciones y confirmaciones.
+- Cronómetro por hábito: iniciar, pausar, reanudar, finalizar, descartar. Se calcula con **marcas de tiempo** y se guarda al instante, así que sobrevive a recargas y a cambios de sección. Finalizar es idempotente (el id de la sesión es el del cronómetro): sin duplicados ni con doble clic.
+- Rachas independientes por hábito (actual y mejor), calculadas desde las sesiones guardadas.
+- Estadísticas (tiempo total, por hábito, progreso de hoy y de 7 días frente a la meta, gráfico de 14 días) e historial por día con filtro y borrado.
+- **Modo claro / oscuro / sistema** en *Perfil → Apariencia*, guardado en la cookie `shift_theme` y aplicado antes de pintar (sin parpadeo).
+- **Respaldo**: exportar e importar todos los datos en JSON (*Mis hábitos → Almacenamiento*), con medidor de espacio.
+- Responsive: móvil (navegación inferior como la referencia), tablet y escritorio (navegación lateral).
 
-### Regla de rachas (decisión de diseño)
+### Regla de rachas
 
-La racha cuenta **días distintos** con actividad (varias sesiones el mismo día = 1 día). Un día de actividad continúa la racha si entre él y el anterior hay **como máximo 2 días completos sin actividad**; con **3 días consecutivos sin actividad se reinicia**. Los días se manejan como cadenas `YYYY-MM-DD` locales y la aritmética se hace en UTC, sin depender de zona horaria ni de cambios de horario. El día de una sesión es el día local en que empezó. Está en `src/lib/streaks.ts` y se valida con tests.
+La racha cuenta **días distintos** con actividad (varias sesiones el mismo día = 1 día). Un día continúa la racha si entre él y el anterior hay **como máximo 2 días completos sin actividad**; con **3 días consecutivos sin actividad se reinicia**. Los días son cadenas `YYYY-MM-DD` locales con aritmética en UTC (sin depender de zona horaria ni de cambios de horario). Código en `src/lib/streaks.ts`, con tests.
 
-## Configurar Supabase (obligatorio, una sola vez)
+## Cómo se guardan los datos (cookies)
 
-1. Crea un proyecto en <https://supabase.com>.
-2. **SQL Editor → New query**, pega todo `supabase/schema.sql` y ejecuta (crea tablas, políticas RLS y el trigger de perfiles; se puede repetir sin riesgo).
-3. **Authentication → Providers → Email** activado. Si quieres entrar sin confirmar el correo, desactiva *Confirm email*; si no, el usuario recibe un correo de confirmación.
-4. **Authentication → URL Configuration**: en *Site URL* y *Redirect URLs* añade la URL de Vercel (y `http://localhost:5173` para desarrollo).
-5. **Project Settings → API**: copia *Project URL* y la clave **anon public**.
+Todo el estado (hábitos, sesiones, cronómetros) se serializa en JSON compacto → gzip → base64url y se reparte en cookies `shift_d0…shift_d7` + `shift_dn` (número de trozos). Cookie de primera parte, `Path=/`, `SameSite=Lax`, `Secure` en https, caducidad de 400 días (el máximo que permiten los navegadores). Si el navegador bloquea las cookies, la app lo detecta y avisa en vez de aparentar que guarda.
 
-## Variables de entorno
+Qué implica, para saberlo:
 
-| Variable | Descripción |
-|---|---|
-| `VITE_SUPABASE_URL` | URL del proyecto Supabase |
-| `VITE_SUPABASE_ANON_KEY` | Clave pública `anon` (protegida por RLS). **Nunca** uses la `service_role` |
-| `VITE_DATA_MODE=local` | *Solo desarrollo/pruebas*: guarda en `localStorage`, sin cuentas ni sincronización; muestra un aviso amarillo. No activar en producción |
-
-Copia `.env.example` a `.env` y rellénalo. `.env` está en `.gitignore`.
+- **Capacidad:** unas **750 sesiones** (≈24 KB). Las cookies viajan en cada petición al sitio, por eso hay un tope prudente. Al acercarse al límite el medidor avisa; el guardado se rechaza con un mensaje claro si se llena (exporta un respaldo y elimina sesiones antiguas).
+- **Sin sincronización:** cada navegador/dispositivo tiene sus propios datos.
+- **Se pierden** si se borran las cookies del sitio o se usa una ventana privada. Descarga un respaldo de vez en cuando.
+- Los cronómetros activos se guardan igual: si cierras el navegador y vuelves, el tiempo sigue contando desde la hora de inicio.
 
 ## Ejecutar en local
 
 ```bash
 npm install
-cp .env.example .env     # rellena las dos variables de Supabase
-npm run dev              # http://localhost:5173
-npm test                 # tests unitarios
-npm run build            # tsc + build de producción en dist/
+npm run dev        # http://localhost:5173
+npm test           # tests unitarios
+npm run build      # tsc + build de producción en dist/
 ```
 
 ## Desplegar en Vercel
 
-1. En Vercel: **Add New → Project** e importa `sergipapu69/shift`.
-2. Framework: **Vite** (lo detecta `vercel.json`). Build `npm run build`, salida `dist`.
-3. En **Settings → Environment Variables** añade `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` (Production, Preview y Development) y **Deploy**.
-4. Añade la URL resultante a las *Redirect URLs* de Supabase (paso 4 de arriba).
+No hace falta ninguna variable de entorno ni servicio externo.
 
-Las variables `VITE_*` se incrustan en la compilación: tras cambiarlas hay que volver a desplegar. Si faltan, la app muestra una pantalla «Falta configurar Supabase» en lugar de fingir que guarda.
+1. En Vercel: **Add New → Project** e importa `sergipapu69/shift`.
+2. Framework **Vite** (lo detecta `vercel.json`); build `npm run build`, salida `dist`.
+3. **Deploy**.
+
+Las cookies pertenecen al dominio donde se abre la app: si cambias de dominio (p. ej. de una URL de preview a la de producción), los datos no se trasladan; usa exportar/importar.
+
+## Opcional: Supabase (cuentas + sincronización entre dispositivos)
+
+Si defines `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` en la compilación, la app usa Supabase en lugar de cookies (login por correo, datos por usuario con RLS). Pasos: crear un proyecto, ejecutar `supabase/schema.sql` en el SQL Editor, activar el proveedor Email y añadir la URL de la app en *Authentication → URL Configuration*. Usa solo la clave `anon`, nunca la `service_role`. **Este modo está escrito pero no se ha probado contra un proyecto real.**
 
 ## Estructura
 
 ```
-src/lib/        dominio puro: fechas, rachas, cronómetro, estadísticas (testeado)
-src/data/       capa de datos: Supabase y modo local de desarrollo
+src/lib/        dominio puro: fechas, rachas, cronómetro, estadísticas, tema (testeado)
+src/data/       almacenamiento: cookies (por defecto, con codec y validación de respaldos) y Supabase (opcional)
 src/store.tsx   estado global, cronómetros recuperables, sincronización al volver a la pestaña
-src/screens/    Inicio, Detalle de hábito, Mis hábitos, Rachas/Estadísticas, Perfil, Acceso
+src/screens/    Inicio, Detalle de hábito, Mis hábitos, Rachas/Estadísticas, Perfil
 src/components/ tarjetas, navegación, cronómetro, gráfico, modales
-supabase/       schema.sql (tablas + RLS)
-tests/          unitarios (Vitest) y humo E2E (Playwright)
+supabase/       schema.sql (solo para el modo opcional)
+tests/          unitarios (Vitest) y E2E (Playwright, tests/e2e/smoke.py)
 ```
 
 ## Pruebas realizadas
 
-- `npm test`: 17 tests unitarios (rachas, fechas, cronómetro, estadísticas) ✔
-- `npm run build` con y sin `VITE_DATA_MODE`: sin errores de tipos ni de compilación ✔
-- E2E en navegador real (Chromium, 390 px) contra la build en modo local — 23/23 ✔: splash <1 s, validaciones, 3 hábitos independientes, nombre duplicado rechazado, cronómetro que sobrevive a recargas, pausa que no acumula, doble clic en «Finalizar» sin duplicar, duración correcta, rachas (varias sesiones el mismo día, hueco de 1 día, reinicio tras 3 días, mejor racha conservada), historial, editar, eliminar con confirmación, persistencia al reabrir el navegador, capturas tablet/escritorio.
+- `npm test`: 25 tests unitarios (rachas, fechas, cronómetro, estadísticas, codec de cookies, validación de respaldos) ✔
+- `npm run build`: sin errores de tipos ni de compilación ✔
+- E2E en Chromium real contra la build de producción — 32/32 ✔: splash <1 s, primera visita pide el nombre, validaciones, hábitos independientes, datos en cookies (<4 KB cada una), cronómetro que sobrevive a recargas, pausa que no acumula, doble clic en «Finalizar» sin duplicar, exportar/importar (y rechazo de archivos inválidos), rachas (varias sesiones el mismo día, hueco de 1 día, reinicio tras 3 días, mejor racha conservada), historial, editar, eliminar con confirmación, tema claro persistente, persistencia al reabrir el navegador, aviso con cookies bloqueadas, sin errores de consola.
+- Capturas revisadas en móvil, tablet y escritorio, en oscuro y claro.
 
 ## Limitaciones conocidas
 
-- **No se ha probado contra un proyecto Supabase real** (no hay credenciales en este entorno): el código de `src/data/supabase.ts`, el esquema y las políticas RLS están escritos pero sin ejecutar. Hazlo tú siguiendo los pasos anteriores y prueba registrarte, crear un hábito y cronometrar.
-- Las imágenes 3D de la referencia (teclado, botella) no se pueden reutilizar: se recrearon como ilustraciones SVG ligeras. El avatar muestra la inicial del nombre (no hay subida de foto).
-- Los recordatorios se muestran en la tarjeta pero no envían notificaciones.
+- Las imágenes 3D de la referencia (teclado, botella) se recrearon como ilustraciones SVG. Sin cuentas no hay foto de perfil: el avatar muestra la inicial.
+- Los recordatorios se muestran en las tarjetas pero no envían notificaciones.

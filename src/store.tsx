@@ -149,9 +149,9 @@ export function StoreProvider({ backend, email, children }: { backend: Backend; 
   const startTimer = useCallback(
     async (habitId: string) => {
       if (timersRef.current[habitId]) return
-      await persistTimer(T.startTimer(habitId, Date.now()), undefined)
+      await persistTimer(T.startTimer(habitId, Date.now(), backend.mode === 'cookies' ? T.shortId() : undefined), undefined)
     },
-    [persistTimer],
+    [persistTimer, backend.mode],
   )
   const pauseTimer = useCallback(
     async (habitId: string) => {

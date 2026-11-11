@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import type { Habit } from '../lib/types'
 import { DAY_SHORT, addDays, dayOfMonth, dayOfWeek, formatClock, formatDayLabel } from '../lib/dates'
 import { elapsedMs } from '../lib/timer'
@@ -9,6 +9,36 @@ import { PlusIcon } from '../components/Icons'
 import { HabitForm } from './HabitForm'
 import { formatTime12 } from '../lib/dates'
 import { goalLabel } from '../lib/labels'
+
+const SKIP = 'shift_name_skip'
+
+/** Primera visita: sin cuentas, se pregunta el nombre para el saludo. */
+function NamePrompt() {
+  const { profile, renameUser, notify, loading } = useStore()
+  const [name, setName] = useState('')
+  const [skipped, setSkipped] = useState(() => document.cookie.includes(SKIP + '=1'))
+  if (loading || skipped || profile.displayName !== 'Usuario') return null
+  const submit = async (e: FormEvent) => {
+    e.preventDefault()
+    const n = name.trim()
+    if (!n) return
+    try { await renameUser(n) } catch (x) { notify('No se pudo guardar: ' + (x instanceof Error ? x.message : 'error'), 'error') }
+  }
+  const skip = () => {
+    document.cookie = `${SKIP}=1; Path=/; Max-Age=${60 * 60 * 24 * 400}; SameSite=Lax`
+    setSkipped(true)
+  }
+  return (
+    <form className="panel name-prompt" onSubmit={submit}>
+      <b>¿Cómo te llamas?</b>
+      <div className="row gap">
+        <input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder="Tu nombre" aria-label="Tu nombre" />
+        <button className="btn primary" disabled={!name.trim()}>Guardar</button>
+      </div>
+      <button type="button" className="link-btn" onClick={skip}>Más tarde</button>
+    </form>
+  )
+}
 
 const SIZES: CardSize[] = ['tall', 'medium', 'small']
 
@@ -73,6 +103,8 @@ export default function Home() {
         </div>
         <button className="plus-btn" onClick={() => setCreating(true)} aria-label="Crear hábito"><PlusIcon width={30} height={30} /></button>
       </header>
+
+      <NamePrompt />
 
       <Hero habits={habits} day={day} />
 

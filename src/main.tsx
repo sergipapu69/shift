@@ -3,6 +3,10 @@ import { createRoot } from 'react-dom/client'
 import '@fontsource-variable/outfit'
 import App from './App'
 import './styles/app.css'
+import { applyTheme, getThemePref, watchSystemTheme } from './lib/theme'
+
+applyTheme(getThemePref())
+watchSystemTheme()
 
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>)
 

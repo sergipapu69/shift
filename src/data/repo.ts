@@ -5,6 +5,11 @@ export interface Profile {
   email: string
 }
 
+export interface StorageInfo {
+  usedBytes: number
+  maxBytes: number
+}
+
 export interface Repo {
   getProfile(): Promise<Profile>
   updateDisplayName(name: string): Promise<void>
@@ -19,6 +24,10 @@ export interface Repo {
   listTimers(): Promise<ActiveTimer[]>
   saveTimer(t: ActiveTimer): Promise<void>
   removeTimer(habitId: string): Promise<void>
+  /** Solo en el almacenamiento por cookies. */
+  storageInfo?(): Promise<StorageInfo>
+  exportData?(): Promise<string>
+  importData?(json: string): Promise<void>
 }
 
 export interface AuthUser {
@@ -35,7 +44,7 @@ export interface AuthApi {
 }
 
 export interface Backend {
-  mode: 'supabase' | 'local'
+  mode: 'supabase' | 'cookies'
   auth: AuthApi
   repo: Repo
 }
